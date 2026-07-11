@@ -126,13 +126,9 @@ Add screenshots of:
 
 ## 👨‍💻 Author
 
-**Vishu Kaushik**
+## 👨‍💻 Author
 
-MCA (Data Science)
-
-Chandigarh University
-
-
----
+**Vishu Kaushik**  
+*MCA Student*
 
 ⭐ If you found this project useful, don't forget to give it a star on GitHub.
