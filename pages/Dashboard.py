@@ -3,9 +3,9 @@ import sqlite3
 import pandas as pd
 import plotly.express as px
 
-# -----------------------------
+# ---------------------------------
 # Page Configuration
-# -----------------------------
+# ---------------------------------
 st.set_page_config(
     page_title="Dashboard",
     page_icon="📊",
@@ -15,45 +15,54 @@ st.set_page_config(
 st.title("📊 Retail Sales Analytics Dashboard")
 st.markdown("---")
 
-# -----------------------------
+# ---------------------------------
 # Database Connection
-# -----------------------------
+# ---------------------------------
 conn = sqlite3.connect("database/sales.db")
 df = pd.read_sql("SELECT * FROM sales", conn)
 conn.close()
 
-# -----------------------------
+# ---------------------------------
 # Check Data
-# -----------------------------
+# ---------------------------------
 if df.empty:
-    st.warning("⚠ No sales data found. Please add some sales first.")
+    st.warning("⚠ No sales data available.")
     st.stop()
 
-# -----------------------------
-# Convert Date
-# -----------------------------
+# ---------------------------------
+# Data Preparation
+# ---------------------------------
 df["date"] = pd.to_datetime(df["date"])
 
-# -----------------------------
+# ---------------------------------
 # Sidebar Filters
-# -----------------------------
+# ---------------------------------
 st.sidebar.header("🔍 Filters")
 
 products = ["All"] + sorted(df["product"].unique().tolist())
 selected_product = st.sidebar.selectbox(
-    "Select Product",
+    "Product",
     products
+)
+
+customers = ["All"] + sorted(df["customer"].unique().tolist())
+selected_customer = st.sidebar.selectbox(
+    "Customer",
+    customers
 )
 
 if selected_product != "All":
     df = df[df["product"] == selected_product]
 
-# -----------------------------
-# KPIs
-# -----------------------------
+if selected_customer != "All":
+    df = df[df["customer"] == selected_customer]
+
+# ---------------------------------
+# KPI Cards
+# ---------------------------------
 total_sales = df["total"].sum()
 orders = len(df)
-customers = df["customer"].nunique()
+customer_count = df["customer"].nunique()
 profit = total_sales * 0.20
 
 col1, col2, col3, col4 = st.columns(4)
@@ -75,17 +84,17 @@ col3.metric(
 
 col4.metric(
     "👥 Customers",
-    customers
+    customer_count
 )
 
 st.markdown("---")
 
-# -----------------------------
-# Charts
-# -----------------------------
-left, right = st.columns(2)
+# ---------------------------------
+# Charts Row 1
+# ---------------------------------
+col1, col2 = st.columns(2)
 
-with left:
+with col1:
 
     st.subheader("📈 Sales Trend")
 
@@ -95,17 +104,16 @@ with left:
         .reset_index()
     )
 
-    fig1 = px.line(
+    fig = px.line(
         sales_by_date,
         x="date",
         y="total",
-        markers=True,
-        title="Sales Over Time"
+        markers=True
     )
 
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-with right:
+with col2:
 
     st.subheader("🥧 Product-wise Sales")
 
@@ -115,45 +123,76 @@ with right:
         .reset_index()
     )
 
-    fig2 = px.pie(
+    fig = px.pie(
         product_sales,
         names="product",
         values="total",
-        hole=0.4,
-        title="Sales Distribution"
+        hole=0.45
     )
 
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-# -----------------------------
-# Top Customers
-# -----------------------------
+# ---------------------------------
+# Charts Row 2
+# ---------------------------------
+col1, col2 = st.columns(2)
+
+with col1:
+
+    st.subheader("🏆 Top Customers")
+
+    customer_sales = (
+        df.groupby("customer")["total"]
+        .sum()
+        .reset_index()
+        .sort_values(
+            by="total",
+            ascending=False
+        )
+    )
+
+    fig = px.bar(
+        customer_sales,
+        x="customer",
+        y="total"
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+with col2:
+
+    st.subheader("📦 Product Sales")
+
+    product_chart = (
+        df.groupby("product")["total"]
+        .sum()
+    )
+
+    st.bar_chart(product_chart)
+
+# ---------------------------------
+# Monthly Sales
+# ---------------------------------
 st.markdown("---")
-st.subheader("🏆 Top Customers")
 
-customer_sales = (
-    df.groupby("customer")["total"]
+st.subheader("📅 Monthly Sales")
+
+monthly_sales = (
+    df.groupby(
+        df["date"].dt.to_period("M")
+    )["total"]
     .sum()
-    .reset_index()
-    .sort_values(
-        by="total",
-        ascending=False
-    )
 )
 
-fig3 = px.bar(
-    customer_sales,
-    x="customer",
-    y="total",
-    title="Customer-wise Sales"
-)
+monthly_sales.index = monthly_sales.index.astype(str)
 
-st.plotly_chart(fig3, use_container_width=True)
+st.area_chart(monthly_sales)
 
-# -----------------------------
-# Sales Table
-# -----------------------------
+# ---------------------------------
+# Sales Records
+# ---------------------------------
 st.markdown("---")
+
 st.subheader("📄 Sales Records")
 
 st.dataframe(
@@ -161,37 +200,14 @@ st.dataframe(
     use_container_width=True
 )
 
-# -----------------------------
+# ---------------------------------
 # Download CSV
-# -----------------------------
+# ---------------------------------
 csv = df.to_csv(index=False).encode("utf-8")
 
 st.download_button(
-    "⬇ Download Sales Report",
-    csv,
-    "sales_report.csv",
-    "text/csv"
+    label="⬇ Download Sales Report",
+    data=csv,
+    file_name="sales_report.csv",
+    mime="text/csv"
 )
-st.sidebar.header("Dashboard Filters")
-
-selected_customer = st.sidebar.selectbox(
-
-    "Customer",
-
-    ["All"] + sorted(df["customer"].unique().tolist())
-
-)
-
-if selected_customer != "All":
-
-    df = df[df["customer"] == selected_customer]
-    st.subheader("📈 Sales Trend")
-
-daily = df.groupby("date")["total"].sum()
-
-st.area_chart(daily)
-category = df.groupby("category")["total"].sum()
-
-st.subheader("Category Sales")
-
-st.bar_chart(category)
