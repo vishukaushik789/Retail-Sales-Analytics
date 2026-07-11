@@ -58,7 +58,7 @@ Retail-Sales-Analytics/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Retail-Sales-Analytics.git
+git clonegit clone https://github.com/vishukaushik789/Retail-Sales-Analytics.git
 ```
 
 ### 2. Open Project
@@ -132,7 +132,6 @@ MCA (Data Science)
 
 Chandigarh University
 
-Graduating: 2027
 
 ---
 
