@@ -2,6 +2,7 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 from utils.export import export_excel
+from utils.pdf_export import export_pdf
 
 # -----------------------------------
 # Page Configuration
@@ -126,4 +127,25 @@ if st.button("Export to Excel"):
             data=f,
             file_name=file,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+        st.divider()
+
+st.subheader("📄 Export PDF")
+
+if st.button("Generate PDF Report"):
+
+    file = export_pdf(df)
+
+    with open(file,"rb") as pdf:
+
+        st.download_button(
+
+            "⬇ Download PDF",
+
+            pdf,
+
+            file_name=file,
+
+            mime="application/pdf"
         )

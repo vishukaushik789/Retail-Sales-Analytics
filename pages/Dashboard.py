@@ -172,3 +172,26 @@ st.download_button(
     "sales_report.csv",
     "text/csv"
 )
+st.sidebar.header("Dashboard Filters")
+
+selected_customer = st.sidebar.selectbox(
+
+    "Customer",
+
+    ["All"] + sorted(df["customer"].unique().tolist())
+
+)
+
+if selected_customer != "All":
+
+    df = df[df["customer"] == selected_customer]
+    st.subheader("📈 Sales Trend")
+
+daily = df.groupby("date")["total"].sum()
+
+st.area_chart(daily)
+category = df.groupby("category")["total"].sum()
+
+st.subheader("Category Sales")
+
+st.bar_chart(category)
