@@ -1,9 +1,11 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-import plotly.express as px
-from sklearn.linear_model import LinearRegression
 import numpy as np
+import plotly.express as px
+
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 # -----------------------------
 # Page Config
@@ -14,14 +16,17 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📈 Sales Forecasting")
+st.title("📈 Machine Learning Sales Forecast")
 
 # -----------------------------
 # Load Data
 # -----------------------------
 conn = sqlite3.connect("database/sales.db")
 
-df = pd.read_sql("SELECT * FROM sales", conn)
+df = pd.read_sql(
+    "SELECT * FROM sales",
+    conn
+)
 
 conn.close()
 
@@ -42,10 +47,8 @@ daily_sales = (
 
 daily_sales = daily_sales.sort_values("date")
 
-# Create day numbers
 daily_sales["day"] = np.arange(len(daily_sales))
 
-# Features & Target
 X = daily_sales[["day"]]
 y = daily_sales["total"]
 
@@ -56,30 +59,72 @@ model = LinearRegression()
 
 model.fit(X, y)
 
+predicted_train = model.predict(X)
+
 # -----------------------------
-# Predict Next 30 Days
+# Accuracy
 # -----------------------------
+mae = mean_absolute_error(y, predicted_train)
+
+rmse = np.sqrt(
+    mean_squared_error(y, predicted_train)
+)
+
+# -----------------------------
+# Forecast Days
+# -----------------------------
+st.sidebar.header("Forecast Settings")
+
+forecast_days = st.sidebar.selectbox(
+    "Forecast Period",
+    [7, 30, 90]
+)
+
 future_days = np.arange(
     len(daily_sales),
-    len(daily_sales) + 30
+    len(daily_sales) + forecast_days
 ).reshape(-1, 1)
 
-predictions = model.predict(future_days)
+future_predictions = model.predict(
+    future_days
+)
 
 future_dates = pd.date_range(
     daily_sales["date"].max() + pd.Timedelta(days=1),
-    periods=30
+    periods=forecast_days
 )
 
 forecast_df = pd.DataFrame({
     "Date": future_dates,
-    "Predicted Sales": predictions
+    "Predicted Sales": future_predictions
 })
 
 # -----------------------------
-# Show Forecast Table
+# KPI Cards
 # -----------------------------
-st.subheader("📋 Next 30 Days Forecast")
+col1, col2, col3 = st.columns(3)
+
+col1.metric(
+    "Forecast Days",
+    forecast_days
+)
+
+col2.metric(
+    "MAE",
+    f"{mae:.2f}"
+)
+
+col3.metric(
+    "RMSE",
+    f"{rmse:.2f}"
+)
+
+st.divider()
+
+# -----------------------------
+# Forecast Table
+# -----------------------------
+st.subheader("📋 Forecast Data")
 
 st.dataframe(
     forecast_df,
@@ -87,16 +132,40 @@ st.dataframe(
 )
 
 # -----------------------------
+# Download CSV
+# -----------------------------
+csv = forecast_df.to_csv(
+    index=False
+).encode("utf-8")
+
+st.download_button(
+    "📥 Download Forecast CSV",
+    csv,
+    "forecast.csv",
+    "text/csv"
+)
+
+st.divider()
+
+# -----------------------------
 # Forecast Chart
 # -----------------------------
-chart_df = pd.DataFrame({
-    "Date": list(daily_sales["date"]) + list(future_dates),
-    "Sales": list(daily_sales["total"]) + list(predictions),
-    "Type": (
-        ["Actual"] * len(daily_sales)
-        + ["Forecast"] * 30
-    )
+actual_df = pd.DataFrame({
+    "Date": daily_sales["date"],
+    "Sales": daily_sales["total"],
+    "Type": "Actual"
 })
+
+forecast_chart = pd.DataFrame({
+    "Date": future_dates,
+    "Sales": future_predictions,
+    "Type": "Forecast"
+})
+
+chart_df = pd.concat(
+    [actual_df, forecast_chart],
+    ignore_index=True
+)
 
 fig = px.line(
     chart_df,
@@ -104,7 +173,7 @@ fig = px.line(
     y="Sales",
     color="Type",
     markers=True,
-    title="Sales Forecast"
+    title="Actual vs Forecast Sales"
 )
 
 st.plotly_chart(
@@ -112,4 +181,59 @@ st.plotly_chart(
     width="stretch"
 )
 
-st.success("Forecast generated successfully!")
+st.divider()
+
+# -----------------------------
+# AI Insights
+# -----------------------------
+st.subheader("🤖 AI Business Insights")
+
+avg_future = forecast_df[
+    "Predicted Sales"
+].mean()
+
+last_sale = daily_sales[
+    "total"
+].iloc[-1]
+
+if avg_future > last_sale:
+
+    growth = (
+        (avg_future - last_sale)
+        / last_sale
+    ) * 100
+
+    st.success(
+        f"""
+📈 Sales are expected to increase by approximately
+{growth:.2f}% over the selected forecast period.
+
+Recommendation:
+Increase inventory and prepare for higher demand.
+"""
+    )
+
+else:
+
+    drop = (
+        (last_sale - avg_future)
+        / last_sale
+    ) * 100
+
+    st.warning(
+        f"""
+📉 Sales may decrease by approximately
+{drop:.2f}% over the selected forecast period.
+
+Recommendation:
+Launch promotions or marketing campaigns.
+"""
+    )
+
+st.info(
+    """
+This forecast is generated using a Linear Regression model.
+Future versions of this project can use Prophet, XGBoost,
+or LSTM for more accurate predictions.
+"""
+)
